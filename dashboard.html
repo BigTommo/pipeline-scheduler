@@ -35,10 +35,13 @@
   footer { margin-top:26px; color:var(--dim); font-size:12px; }
   .hint { color:var(--dim); font-size:12.5px; margin:0 0 8px; }
   code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.92em; }
-  .copy { cursor:pointer; transition:border-color .15s; }
-  .copy:hover { border-color:var(--accent); }
-  .copy.done { border-color:var(--accent); }
-  .copy.done::after { content:" copied"; color:var(--accent); font-size:11px; }
+  .block { position:relative; }
+  .block pre { padding-right:74px; }
+  .btn { position:absolute; top:8px; right:8px; padding:4px 10px; font:inherit; font-size:11.5px;
+         line-height:1.4; border:1px solid var(--line); border-radius:6px; background:var(--bg);
+         color:var(--dim); cursor:pointer; transition:.15s; }
+  .btn:hover { border-color:var(--accent); color:var(--accent); }
+  .btn.done { border-color:var(--accent); color:var(--accent); }
   a { color:var(--accent); }
 </style>
 <main>
@@ -53,11 +56,11 @@
 
   <h2>Book now</h2>
   <p class="hint">Runs as soon as a runner slot frees. Needs <code>GITLAB_TOKEN</code>
-     exported in your shell. Click to copy.</p>
-  <pre id="qb" class="copy" title="click to copy">loading</pre>
+     exported in your shell.</p>
+  <div class="block"><button class="btn" data-for="qb">Copy</button><pre id="qb">loading</pre></div>
 
   <h2>Install</h2>
-  <pre id="i" class="copy" title="click to copy">loading</pre>
+  <div class="block"><button class="btn" data-for="i">Copy</button><pre id="i">loading</pre></div>
 
   <footer>Refreshes every 15s. Times shown in your local zone.</footer>
 </main>
@@ -88,13 +91,19 @@ async function load() {
 fetch('/install').then(r => r.text()).then(t => document.getElementById('i').textContent = t.trim());
 fetch('/quickbook').then(r => r.text()).then(t => document.getElementById('qb').textContent = t.trim());
 
-for (const el of document.querySelectorAll('.copy')) {
-  el.addEventListener('click', async () => {
+for (const btn of document.querySelectorAll('.btn')) {
+  btn.addEventListener('click', async () => {
+    const text = document.getElementById(btn.dataset.for).textContent;
     try {
-      await navigator.clipboard.writeText(el.textContent);
-      el.classList.add('done');
-      setTimeout(() => el.classList.remove('done'), 1200);
-    } catch {}
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const t = document.createElement('textarea');
+      t.value = text; document.body.append(t); t.select();
+      document.execCommand('copy'); t.remove();
+    }
+    btn.textContent = 'Copied';
+    btn.classList.add('done');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1400);
   });
 }
 load(); setInterval(load, 15000);
