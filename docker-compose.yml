@@ -1,0 +1,38 @@
+name: pipeline-scheduler
+
+services:
+  prefect:
+    build: .
+    restart: unless-stopped
+    environment:
+      GITLAB_PROJECT: ${GITLAB_PROJECT:?}
+      GITLAB_URL: ${GITLAB_URL:-https://gitlab.com}
+      DEFAULT_REF: ${DEFAULT_REF:-dev/1.0.13}
+      RUNNER_TAGS: ${RUNNER_TAGS:-perentie-runner,tern-runner}
+      PROTECTED_REFS: ${PROTECTED_REFS:-main,beta,develop,ci-test,alpha-1.0.10}
+      POLL_SECONDS: ${POLL_SECONDS:-30}
+      DRY_RUN: ${DRY_RUN:-true}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      PREFECT_SERVER_API_AUTH_STRING: ${PREFECT_AUTH:?set PREFECT_AUTH=user:pass}
+      PREFECT_API_AUTH_STRING: ${PREFECT_AUTH}
+    volumes:
+      - scheduler-data:/data
+    # no ports: reachable only from the gate, over the compose network
+
+  gate:
+    build: .
+    restart: unless-stopped
+    depends_on: [prefect]
+    command: ["python", "gate.py"]
+    entrypoint: []
+    ports:
+      - "${GATE_PORT:-8080}:8080"
+    environment:
+      GITLAB_URL: ${GITLAB_URL:-https://gitlab.com}
+      PREFECT_API_URL: http://prefect:4200/api
+      PREFECT_API_AUTH_STRING: ${PREFECT_AUTH}
+      DEFAULT_REF: ${DEFAULT_REF:-dev/1.0.13}
+      PROTECTED_REFS: ${PROTECTED_REFS:-main,beta,develop,ci-test,alpha-1.0.10}
+
+volumes:
+  scheduler-data:

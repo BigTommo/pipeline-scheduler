@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""Stdio MCP server. Your PAT comes from this process's own GITLAB_TOKEN env,
+never from a tool argument, so it is never in the model's context."""
+import json
+import sys
+
+from book import GATE, TOKEN, call, when
+
+TIME = {
+    "start_in": {"type": "string", "description": "Relative delay: 30m, 2h, 1d. Omit both for immediately."},
+    "start_at": {"type": "string", "description": "Local time, e.g. 2026-09-18 02:00."},
+}
+
+TOOLS = [
+    {
+        "name": "list_bookings",
+        "description": "List pipeline runs booked, waiting for a runner slot, or running.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "book_pipeline",
+        "description": "Book a GitLab E2E pipeline run. It waits for a free slot on its runner tag instead of contending. Runs as you; there is no way to book on someone else's behalf.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "runner_tag": {"type": "string", "enum": ["perentie-runner", "tern-runner"]},
+                "variables": {"type": "object", "description": "GitLab pipeline variables, string values."},
+                "ref": {"type": "string", "description": "Branch. Defaults to the server's DEFAULT_REF."},
+                "note": {"type": "string", "description": "Why this run was booked. Shown in the queue."},
+                "allow_protected": {"type": "boolean", "description": "Required to book a publish branch (main, beta, develop, ci-test, alpha-1.0.10). Only set when the user explicitly asked for that branch."},
+                **TIME,
+            },
+        },
+    },
+    {
+        "name": "list_schedules",
+        "description": "List recurring (cron) schedules. Returns only the cron, timezone and who owns each.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "add_schedule",
+        "description": "Add a recurring pipeline schedule. Fires as you, using your token, every time it runs.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "cron": {"type": "string", "description": "Cron expression, e.g. '0 2 * * *'."},
+                "timezone": {"type": "string", "description": "IANA zone, e.g. Australia/Adelaide. Defaults to UTC."},
+                "runner_tag": {"type": "string", "enum": ["perentie-runner", "tern-runner"]},
+                "variables": {"type": "object"},
+                "ref": {"type": "string"},
+                "note": {"type": "string"},
+                "allow_protected": {"type": "boolean"},
+            },
+            "required": ["cron"],
+        },
+    },
+    {
+        "name": "remove_schedule",
+        "description": "Remove a recurring schedule by id.",
+        "inputSchema": {"type": "object", "properties": {"schedule_id": {"type": "string"}}, "required": ["schedule_id"]},
+    },
+    {
+        "name": "move_booking",
+        "description": "Reschedule one of your own bookings that has not started yet.",
+        "inputSchema": {"type": "object", "properties": {"run_id": {"type": "string"}, **TIME}, "required": ["run_id"]},
+    },
+    {
+        "name": "cancel_booking",
+        "description": "Remove one of your own bookings that has not started. Never touches a running GitLab pipeline.",
+        "inputSchema": {"type": "object", "properties": {"run_id": {"type": "string"}}, "required": ["run_id"]},
+    },
+]
+
+
+def list_bookings():
+    rows = call("GET", "/bookings")["bookings"]
+    if not rows:
+        return "Nothing booked."
+    return "\n".join(f"{b['id']} {(b['at'] or '')[:16]} {b['requested_by']}" for b in rows)
+
+
+def list_schedules():
+    rows = call("GET", "/schedules")["schedules"]
+    if not rows:
+        return "No recurring schedules."
+    return "\n".join(f"{s['id']} {s['cron']} {s['timezone']} {s['requested_by']}" for s in rows)
+
+
+def add_schedule(cron, timezone="UTC", runner_tag="perentie-runner", variables=None,
+                 ref=None, note="", allow_protected=False):
+    body = {"cron": cron, "timezone": timezone, "runner_tag": runner_tag,
+            "variables": variables or {}, "note": note, "allow_protected": allow_protected}
+    if ref:
+        body["ref"] = ref
+    r = call("POST", "/schedules/add", body)
+    return f"Scheduled {r['id']}: {r['cron']} as {r['requested_by']}"
+
+
+def remove_schedule(schedule_id):
+    return f"Removed {call('POST', '/schedules/remove', {'schedule_id': schedule_id})['removed']}"
+
+
+def book_pipeline(runner_tag="perentie-runner", variables=None, ref=None, note="",
+                  allow_protected=False, start_in=None, start_at=None):
+    body = {"runner_tag": runner_tag, "variables": variables or {}, "note": note,
+            "allow_protected": allow_protected, "scheduled_time": when(start_at, start_in)}
+    if ref:
+        body["ref"] = ref
+    r = call("POST", "/book", body)
+    return f"Booked {r['id']} ({r['name']}) on {runner_tag} at {r['at']}"
+
+
+def move_booking(run_id, start_in=None, start_at=None):
+    r = call("POST", "/move", {"run_id": run_id, "scheduled_time": when(start_at, start_in)})
+    return f"{r['status']} moved to {r['at']}"
+
+
+def cancel_booking(run_id):
+    return f"Cancelled {call('POST', '/cancel', {'run_id': run_id})['cancelled']}"
+
+
+HANDLERS = {t["name"]: globals()[t["name"]] for t in TOOLS}
+
+
+def handle(msg):
+    method, mid = msg.get("method"), msg.get("id")
+    if method == "initialize":
+        result = {
+            "protocolVersion": msg.get("params", {}).get("protocolVersion", "2025-06-18"),
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "pipeline-scheduler", "version": "2.1.0"},
+        }
+    elif method == "tools/list":
+        result = {"tools": TOOLS}
+    elif method == "tools/call":
+        try:
+            text = HANDLERS[msg["params"]["name"]](**msg["params"].get("arguments", {}))
+            result = {"content": [{"type": "text", "text": text}]}
+        except SystemExit as e:
+            result = {"content": [{"type": "text", "text": str(e)}], "isError": True}
+        except Exception as e:
+            result = {"content": [{"type": "text", "text": f"{type(e).__name__}: {e}"}], "isError": True}
+    elif method == "ping":
+        result = {}
+    elif mid is None:
+        return None
+    else:
+        return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": f"unknown method {method}"}}
+    return None if mid is None else {"jsonrpc": "2.0", "id": mid, "result": result}
+
+
+if not TOKEN:
+    print(f"pipeline-scheduler MCP: set GITLAB_TOKEN (gate {GATE})", file=sys.stderr)
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    reply = handle(json.loads(line))
+    if reply:
+        print(json.dumps(reply), flush=True)
