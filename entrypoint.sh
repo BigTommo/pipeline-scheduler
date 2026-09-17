@@ -13,6 +13,29 @@ for tag in $(echo "${RUNNER_TAGS:-perentie-runner,tern-runner}" | tr ',' ' '); d
   prefect global-concurrency-limit inspect "$tag" >/dev/null 2>&1 ||
     prefect global-concurrency-limit create --limit 1 "$tag" >/dev/null
 done
+# Nothing can legitimately be mid-run at startup: this container is the only
+# thing that executes flows. So any run still marked RUNNING was killed by a
+# restart, and its concurrency slot is leaked. Clear both, or the queue wedges
+# forever with no sign of why.
+python - <<'PY'
+import os, httpx
+auth = tuple(os.environ["PREFECT_API_AUTH_STRING"].split(":", 1)) if os.getenv("PREFECT_API_AUTH_STRING") else None
+api = "http://127.0.0.1:4200/api"
+stuck = httpx.post(f"{api}/flow_runs/filter", auth=auth, timeout=20,
+                   json={"flow_runs": {"state": {"type": {"any_": ["RUNNING", "PENDING"]}}}, "limit": 200}).json()
+for r in stuck:
+    httpx.post(f"{api}/flow_runs/{r['id']}/set_state", auth=auth, timeout=20, json={
+        "state": {"type": "CRASHED", "message": "orphaned by a scheduler restart"}, "force": True})
+if stuck:
+    print(f"cleared {len(stuck)} orphaned run(s) from a previous restart")
+
+for lim in httpx.post(f"{api}/v2/concurrency_limits/filter", auth=auth, timeout=20, json={}).json():
+    if lim["active_slots"]:
+        httpx.patch(f"{api}/v2/concurrency_limits/{lim['name']}", auth=auth, timeout=20,
+                    json={"active_slots": 0})
+        print(f"released {lim['active_slots']} leaked slot(s) on {lim['name']}")
+PY
+
 echo "concurrency limits ready: ${RUNNER_TAGS:-perentie-runner,tern-runner}"
 echo "prefect api (internal only): http://prefect:4200/api"
 echo "admin ui (only with --ui):   http://127.0.0.1:${PREFECT_UI_PORT:-4200}"
