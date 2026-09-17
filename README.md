@@ -36,10 +36,10 @@ On the machine that will host the scheduler (one box for the whole team):
     cp .env.example .env     # set GITLAB_PROJECT and PREFECT_AUTH
     docker compose up -d --build
 
-Everyone else only needs the client, and the client is one file:
+Everyone else installs from the running gate, not from here. It serves its own
+client, so nobody needs repo access:
 
-    curl -O https://raw.githubusercontent.com/BigTommo/pipeline-scheduler/main/book.py
-    chmod +x book.py
+    curl http://scheduler-host:8080/install
 
 ## Run
 
@@ -88,17 +88,17 @@ at book time, not an hour later when the run fires.
 
 ## Agents
 
-Each person does this once, on their own machine. `mcp_server.py` needs `book.py`
-beside it, so clone rather than downloading the one file:
+One line, on each person's own machine. `curl http://scheduler-host:8080/install`
+prints these with the right host filled in:
 
-    git clone https://github.com/BigTommo/pipeline-scheduler.git ~/pipeline-scheduler
+    curl -sfO http://scheduler-host:8080/client/mcp_server.py && claude mcp add pipeline-scheduler -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://scheduler-host:8080 -- python3 "$PWD/mcp_server.py"
 
-    claude mcp add pipeline-scheduler \
-      -e GITLAB_TOKEN=glpat-your-own-token \
-      -e SCHEDULER_URL=http://scheduler-host:8080 \
-      -- python3 ~/pipeline-scheduler/mcp_server.py
+The skill is optional and also one line:
 
-    ln -s ~/pipeline-scheduler/skill ~/.claude/skills/pipeline-book
+    mkdir -p ~/.claude/skills/pipeline-book && curl -sf http://scheduler-host:8080/client/SKILL.md -o ~/.claude/skills/pipeline-book/SKILL.md
+
+`mcp_server.py` is a single self-contained file, stdlib only. No clone, no repo
+access, nothing to `pip install`.
 
 Then ask for things in plain language: "book the priority suite for 2am",
 "what's queued", "push my 2am one back three hours".
@@ -108,9 +108,7 @@ argument, so it never enters the model's context, and there is nothing to
 redact. The tools expose no identity field at all, so an agent cannot book on
 anyone else's behalf.
 
-Stdlib only, so there is nothing to `pip install`.
-
-The skill is optional. It carries the judgement (book instead of trigger when a
+The skill carries the judgement (book instead of trigger when a
 run is in flight, name whose booking you are about to move), while the MCP
 carries the mechanism.
 
@@ -128,6 +126,7 @@ team resource, so anyone can see the queue, move it, or give it back.
 | | `POST /schedules/remove` `{schedule_id}` | no |
 | | `POST /book` `{scheduled_time, variables?, ref?, runner_tag?, note?, allow_protected?}` | **yes** |
 | | `POST /schedules/add` `{cron, timezone?, ...same}` | **yes** |
+| | `GET /install`, `GET /client/{mcp_server.py,book.py,SKILL.md}` | no |
 
 Anything else is 404.
 

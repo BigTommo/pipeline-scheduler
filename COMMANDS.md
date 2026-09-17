@@ -35,6 +35,12 @@ Only `book` and `schedule` need `GITLAB_TOKEN`.
 
 ## Wiring agents
 
-    ln -s $PWD/skill ~/.claude/skills/pipeline-book
-    claude mcp add pipeline-scheduler -e GITLAB_TOKEN=glpat-xxx \
-      -e SCHEDULER_URL=http://localhost:8080 -- python3 $PWD/mcp_server.py
+    curl http://scheduler-host:8080/install        # prints the one-liners
+
+MCP:
+
+    curl -sfO http://scheduler-host:8080/client/mcp_server.py && claude mcp add pipeline-scheduler -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://scheduler-host:8080 -- python3 "$PWD/mcp_server.py"
+
+Skill:
+
+    mkdir -p ~/.claude/skills/pipeline-book && curl -sf http://scheduler-host:8080/client/SKILL.md -o ~/.claude/skills/pipeline-book/SKILL.md

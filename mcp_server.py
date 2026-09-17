@@ -1,10 +1,45 @@
 #!/usr/bin/env python3
-"""Stdio MCP server. Your PAT comes from this process's own GITLAB_TOKEN env,
-never from a tool argument, so it is never in the model's context."""
-import json
-import sys
+"""Stdio MCP server for pipeline-scheduler. Single file, stdlib only.
 
-from book import GATE, TOKEN, call, when
+Your PAT comes from this process's own GITLAB_TOKEN env, never from a tool
+argument, so it is never in the model's context."""
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
+from datetime import datetime, timedelta, timezone
+
+GATE = os.getenv("SCHEDULER_URL", "http://localhost:8080").rstrip("/")
+TOKEN = os.getenv("GITLAB_TOKEN", "")
+
+
+def call(method, path, body=None):
+    req = urllib.request.Request(
+        GATE + path,
+        method=method,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {TOKEN}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read() or "null")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(json.loads(e.read() or '{"error":"?"}').get("error", e.reason)) from None
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"scheduler unreachable at {GATE}: {e.reason}") from None
+
+
+def when(at, delay):
+    if delay:
+        n, unit = int(re.match(r"(\d+)", delay).group(1)), delay[-1]
+        t = datetime.now(timezone.utc) + timedelta(minutes=n * {"m": 1, "h": 60, "d": 1440}[unit])
+    elif at:
+        t = datetime.fromisoformat(at).astimezone(timezone.utc)
+    else:
+        t = datetime.now(timezone.utc)
+    return t.isoformat().replace("+00:00", "Z")
 
 TIME = {
     "start_in": {"type": "string", "description": "Relative delay: 30m, 2h, 1d. Omit both for immediately."},
@@ -128,7 +163,7 @@ def handle(msg):
         result = {
             "protocolVersion": msg.get("params", {}).get("protocolVersion", "2025-06-18"),
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": "pipeline-scheduler", "version": "2.1.0"},
+            "serverInfo": {"name": "pipeline-scheduler", "version": "2.2.0"},
         }
     elif method == "tools/list":
         result = {"tools": TOOLS}
@@ -136,10 +171,9 @@ def handle(msg):
         try:
             text = HANDLERS[msg["params"]["name"]](**msg["params"].get("arguments", {}))
             result = {"content": [{"type": "text", "text": text}]}
-        except SystemExit as e:
-            result = {"content": [{"type": "text", "text": str(e)}], "isError": True}
         except Exception as e:
-            result = {"content": [{"type": "text", "text": f"{type(e).__name__}: {e}"}], "isError": True}
+            msg = str(e) if isinstance(e, RuntimeError) else f"{type(e).__name__}: {e}"
+            result = {"content": [{"type": "text", "text": msg}], "isError": True}
     elif method == "ping":
         result = {}
     elif mid is None:

@@ -9,7 +9,8 @@ ENV PREFECT_API_URL=http://127.0.0.1:4200/api \
     PREFECT_HOME=/data
 
 WORKDIR /app
-COPY scheduler.py gate.py book.py entrypoint.sh ./
+COPY scheduler.py gate.py book.py mcp_server.py entrypoint.sh ./
+COPY skill/SKILL.md ./skill/
 RUN chmod +x entrypoint.sh
 
 EXPOSE 4200 8080

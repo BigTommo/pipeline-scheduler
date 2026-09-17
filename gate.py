@@ -120,6 +120,27 @@ AUTHED = {"/book": book, "/schedules/add": add_schedule}
 OPEN = {"/move": move, "/cancel": cancel, "/schedules/remove": drop_schedule}
 READS = {"/bookings": bookings, "/schedules": schedules}
 
+# The client, served from here so a private repo is not in the way.
+CLIENT = {
+    "/client/mcp_server.py": ("mcp_server.py", "text/x-python"),
+    "/client/book.py": ("book.py", "text/x-python"),
+    "/client/SKILL.md": ("skill/SKILL.md", "text/markdown"),
+}
+
+
+def install_help(host):
+    return f"""# pipeline-scheduler, one line each. Use your own GitLab PAT.
+
+# MCP (agents)
+curl -sfO http://{host}/client/mcp_server.py && claude mcp add pipeline-scheduler -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://{host} -- python3 "$PWD/mcp_server.py"
+
+# Skill (optional, tells agents when to book)
+mkdir -p ~/.claude/skills/pipeline-book && curl -sf http://{host}/client/SKILL.md -o ~/.claude/skills/pipeline-book/SKILL.md
+
+# CLI only
+curl -sfO http://{host}/client/book.py && chmod +x book.py && export SCHEDULER_URL=http://{host}
+"""
+
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -143,7 +164,20 @@ class Handler(BaseHTTPRequestHandler):
             return None, None
         return user, token
 
+    def send_text(self, body, ctype):
+        raw = body.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
     def do_GET(self):
+        if self.path == "/install":
+            return self.send_text(install_help(self.headers.get("Host", "localhost:8080")), "text/plain")
+        if self.path in CLIENT:
+            name, ctype = CLIENT[self.path]
+            return self.send_text(open(name).read(), ctype)
         handler = READS.get(self.path)
         if not handler:
             return self.reply(404, {"error": "no such endpoint"})
