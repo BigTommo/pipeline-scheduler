@@ -61,9 +61,14 @@
 
   <h2>Book now</h2>
   <p class="hint">Runs as soon as a runner slot frees. Needs <code>GITLAB_TOKEN</code>
-     exported in your shell. For later, add
-     <code>"scheduled_time":"2026-09-18T02:00:00Z"</code> (UTC) to the JSON.</p>
+     exported in your shell.</p>
   <div class="block"><button class="btn" data-for="qb">Copy</button><pre id="qb">loading</pre></div>
+
+  <h2>Book in 1 minute</h2>
+  <p class="hint">Same thing with a <code>scheduled_time</code>, so you can watch it sit
+     in the queue first. Timestamp is regenerated on every refresh,
+     <span id="qbwhen"></span>.</p>
+  <div class="block"><button class="btn" data-for="qbl">Copy</button><pre id="qbl">loading</pre></div>
 
   <h2>Install</h2>
   <div class="block"><button class="btn" data-for="i">Copy</button><pre id="i">loading</pre></div>
@@ -85,6 +90,7 @@ async function load() {
       fetch('/bookings').then(r => r.json()),
       fetch('/schedules').then(r => r.json()),
     ]);
+    renderQuick();
     document.getElementById('q').innerHTML = table(['When','Who','Id'],
       b.bookings.map(x => `<tr><td class="when">${fmt(x.at)}</td><td class="who">${esc(x.requested_by)}</td><td class="id">${esc(x.id)}</td></tr>`));
     document.getElementById('r').innerHTML = table(['Finished','State','Who'],
@@ -99,7 +105,16 @@ async function load() {
   }
 }
 fetch('/install').then(r => r.text()).then(t => document.getElementById('i').textContent = t.trim());
-fetch('/quickbook').then(r => r.text()).then(t => document.getElementById('qb').textContent = t.trim());
+let quickTemplate = '';
+function renderQuick() {
+  if (!quickTemplate) return;
+  document.getElementById('qb').textContent = quickTemplate;
+  const at = new Date(Date.now() + 60000).toISOString().replace(/\.\d+Z$/, 'Z');
+  document.getElementById('qbl').textContent =
+    quickTemplate.replace('\'{"ref"', `'{"scheduled_time":"${at}","ref"`);
+  document.getElementById('qbwhen').textContent = 'currently ' + fmt(at);
+}
+fetch('/quickbook').then(r => r.text()).then(t => { quickTemplate = t.trim(); renderQuick(); });
 
 for (const btn of document.querySelectorAll('.btn')) {
   btn.addEventListener('click', async () => {

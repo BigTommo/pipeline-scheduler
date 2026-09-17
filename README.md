@@ -45,6 +45,9 @@ client, so nobody needs repo access:
 
     ./start.sh
 
+`./start.sh -f` starts and then follows the logs; Ctrl-C detaches and leaves the
+stack running. `./start.sh --ui` also opens Prefect's admin UI on loopback.
+
 `./start.sh` works out this machine's LAN address and advertises it, so the
 install strings teammates copy point at this host rather than their own
 localhost. Plain `docker compose up -d --build` also works, but then `/install`
@@ -62,9 +65,7 @@ the API. Changing anything goes through the CLI or MCP.
 
 The Prefect UI is deliberately not published. If you need it for internals:
 
-    docker compose -f docker-compose.yml -f docker-compose.ui.yml up -d
-
-`./start.sh` does not include that override, so a plain start closes it again.
+    ./start.sh --ui
 
 That binds it to `127.0.0.1:4200` on the host only. It can hand out stored
 tokens, so never bind it to anything else.

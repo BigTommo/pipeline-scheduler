@@ -4,6 +4,8 @@
 
     cp .env.example .env    # first time: set GITLAB_PROJECT, PREFECT_AUTH
     ./start.sh              # start, advertising this machine's LAN address
+    ./start.sh -f           # start, then follow logs (Ctrl-C leaves it running)
+    ./start.sh --ui         # also expose Prefect's admin UI on 127.0.0.1
     docker compose ps
     docker compose logs -f prefect
     docker compose logs -f gate
