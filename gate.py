@@ -5,6 +5,7 @@ import os
 import re
 import threading
 import time
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
@@ -17,6 +18,7 @@ DEPLOYMENT = "run-pipeline/e2e"
 PROTECTED = {r.strip() for r in os.getenv("PROTECTED_REFS", "main,beta,develop,ci-test,alpha-1.0.10").split(",")}
 UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 ADVERTISE = os.getenv("ADVERTISE_HOST", "")
+EXAMPLE_REF = os.getenv("DEFAULT_REF", "dev/1.0.13")  # shown in the dashboard example only
 STORE = "/data/schedules.json"
 _lock = threading.Lock()
 
@@ -52,9 +54,10 @@ def book(user, b):
     dep = prefect_api("GET", f"/deployments/name/{DEPLOYMENT}")
     params = {k: b[k] for k in ("ref", "runner_tag", "variables", "note", "allow_protected") if k in b}
     params["requested_by"] = user
+    at = b.get("scheduled_time") or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     run = prefect_api("POST", f"/deployments/{dep['id']}/create_flow_run", {
         "parameters": params,
-        "state": {"type": "SCHEDULED", "state_details": {"scheduled_time": b["scheduled_time"]}},
+        "state": {"type": "SCHEDULED", "state_details": {"scheduled_time": at}},
     })
     return {"id": run["id"], "name": run["name"], "at": run["state"]["state_details"]["scheduled_time"]}
 
@@ -186,8 +189,9 @@ def install_help(host):
     host = ADVERTISE or host
     return f"""# pipeline-scheduler, one line each. Use your own GitLab PAT.
 
-# MCP (agents)
-curl -sfO http://{host}/client/mcp_server.py && claude mcp add pipeline-scheduler -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://{host} -- python3 "$PWD/mcp_server.py"
+# MCP (agents). --scope user makes it available in every project, terminal and
+# the VS Code Claude extension alike.
+curl -sfO http://{host}/client/mcp_server.py && claude mcp add pipeline-scheduler --scope user -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://{host} -- python3 "$PWD/mcp_server.py"
 
 # Skill (optional, tells agents when to book)
 mkdir -p ~/.claude/skills/pipeline-book && curl -sf http://{host}/client/SKILL.md -o ~/.claude/skills/pipeline-book/SKILL.md
@@ -195,6 +199,15 @@ mkdir -p ~/.claude/skills/pipeline-book && curl -sf http://{host}/client/SKILL.m
 # CLI only
 curl -sfO http://{host}/client/book.py && chmod +x book.py && export SCHEDULER_URL=http://{host}
 """
+
+
+def quick_book(host):
+    host = ADVERTISE or host
+    return (
+        f"""curl -sf -X POST http://{host}/book -H "Authorization: Bearer $GITLAB_TOKEN" """
+        f"""-H 'Content-Type: application/json' """
+        f"""-d '{{"ref":"{EXAMPLE_REF}","variables":{{"RUN_BUILD":"true","RUN_UNIT_TESTS":"false"}}}}'"""
+    )
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -232,6 +245,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_text(open("dashboard.html").read(), "text/html; charset=utf-8")
         if self.path == "/install":
             return self.send_text(install_help(self.headers.get("Host", "localhost:8080")), "text/plain")
+        if self.path == "/quickbook":
+            return self.send_text(quick_book(self.headers.get("Host", "localhost:8080")), "text/plain")
         if self.path in CLIENT:
             name, ctype = CLIENT[self.path]
             return self.send_text(open(name).read(), ctype)

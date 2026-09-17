@@ -54,7 +54,9 @@ Set `DRY_RUN=false` in `.env` and `docker compose up -d` again to go live.
 
 ## Dashboard
 
-`http://scheduler-host:8080/` is a read-only queue view: who holds a slot, when,
+`http://scheduler-host:8080/` shows the queue, the recurring schedules, a
+click-to-copy one-liner for booking a run right now, and the install commands.
+It is read-only otherwise: who holds a slot, when,
 and the recurring schedules. Refreshes itself, no login, same minimal fields as
 the API. Changing anything goes through the CLI or MCP.
 
@@ -109,7 +111,12 @@ at book time, not an hour later when the run fires.
 One line, on each person's own machine. `curl http://scheduler-host:8080/install`
 prints these with the right host filled in:
 
-    curl -sfO http://scheduler-host:8080/client/mcp_server.py && claude mcp add pipeline-scheduler -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://scheduler-host:8080 -- python3 "$PWD/mcp_server.py"
+    curl -sfO http://scheduler-host:8080/client/mcp_server.py && claude mcp add pipeline-scheduler --scope user -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://scheduler-host:8080 -- python3 "$PWD/mcp_server.py"
+
+`--scope user` registers it once for every project. The VS Code Claude extension
+reads the same config as the terminal, so this one command covers both; restart
+the extension to pick it up. Do not use VS Code's own `.vscode/mcp.json`, which
+is Copilot's, not Claude's.
 
 The skill is optional and also one line:
 

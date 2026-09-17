@@ -33,6 +33,7 @@ services:
       PREFECT_API_AUTH_STRING: ${PREFECT_AUTH}
       PROTECTED_REFS: ${PROTECTED_REFS:-main,beta,develop,ci-test,alpha-1.0.10}
       ADVERTISE_HOST: ${ADVERTISE_HOST:-}
+      DEFAULT_REF: ${DEFAULT_REF:-dev/1.0.13}
     volumes:
       - scheduler-data:/data
 
