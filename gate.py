@@ -16,6 +16,7 @@ PREFECT = os.getenv("PREFECT_API_URL", "http://prefect:4200/api")
 AUTH = tuple(os.environ["PREFECT_API_AUTH_STRING"].split(":", 1)) if os.getenv("PREFECT_API_AUTH_STRING") else None
 DEPLOYMENT = "run-pipeline/e2e"
 PROTECTED = {r.strip() for r in os.getenv("PROTECTED_REFS", "main,beta,develop,ci-test,alpha-1.0.10").split(",")}
+TAGS = [t.strip() for t in os.getenv("RUNNER_TAGS", "perentie-runner,tern-runner").split(",")]
 UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 ADVERTISE = os.getenv("ADVERTISE_HOST", "")
 EXAMPLE_REF = os.getenv("DEFAULT_REF", "dev/1.0.13")  # shown in the dashboard example only
@@ -47,6 +48,12 @@ def check_ref(b):
         raise ValueError("ref is required: name the branch this runs against")
     if ref in PROTECTED and not b.get("allow_protected"):
         raise ValueError(f"{ref} is a publish branch; pass allow_protected if you mean it")
+    # An unknown tag has no concurrency limit behind it, so it would skip the
+    # queue and run immediately no matter what else is in flight.
+    tag = b.get("runner_tag", TAGS[0])
+    if tag not in TAGS:
+        raise ValueError(f"unknown runner_tag {tag!r}; expected one of {', '.join(TAGS)}")
+    b["runner_tag"] = tag
 
 
 def book(user, b):

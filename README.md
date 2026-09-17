@@ -156,11 +156,15 @@ team resource, so anyone can see the queue, move it, or give it back.
 | | `POST /move` `{run_id, scheduled_time}` | no |
 | | `POST /cancel` `{run_id}` | no |
 | | `POST /schedules/remove` `{schedule_id}` | no |
-| | `POST /book` `{ref, scheduled_time, variables?, runner_tag?, note?, allow_protected?}` | **yes** |
+| | `POST /book` `{ref, scheduled_time?, variables?, runner_tag?, note?, allow_protected?}` | **yes** |
 | | `POST /schedules/add` `{ref, cron, timezone?, ...same}` | **yes** |
 | | `GET /`, `GET /install`, `GET /client/{mcp_server.py,book.py,SKILL.md}` | no |
 
 Anything else is 404.
+
+`scheduled_time` is optional and defaults to now; pass an ISO UTC timestamp to
+book for later. `runner_tag` must be one of `RUNNER_TAGS`: an unknown tag has no
+concurrency limit behind it and would skip the queue entirely.
 
 `ref` is required on both. It is payload for GitLab, not a scheduling input:
 queueing is keyed on `runner_tag` alone, so two bookings on different branches
