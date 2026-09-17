@@ -112,7 +112,14 @@ at book time, not an hour later when the run fires.
 One line, on each person's own machine. `curl http://scheduler-host:8080/install`
 prints these with the right host filled in:
 
-    curl -sfO http://scheduler-host:8080/client/mcp_server.py && claude mcp add pipeline-scheduler --scope user -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://scheduler-host:8080 -- python3 "$PWD/mcp_server.py"
+    mkdir -p ~/.claude/mcp/pipeline-scheduler && curl -sf http://scheduler-host:8080/client/mcp_server.py -o ~/.claude/mcp/pipeline-scheduler/mcp_server.py && claude mcp add pipeline-scheduler --scope user -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://scheduler-host:8080 -- python3 ~/.claude/mcp/pipeline-scheduler/mcp_server.py
+
+Claude launches that file on every session, so it has to stay put: it cannot be
+temporary and deleting it breaks the server. Claude has no standard directory
+for MCP script files (most servers are launched as packages), so this puts it
+under `~/.claude/mcp/` beside the skill, rather than in whatever directory you
+ran the install from. To upgrade, re-run the `curl` alone; the registration
+already points at that path.
 
 `--scope user` registers it once for every project. The VS Code Claude extension
 reads the same config as the terminal, so this one command covers both; restart

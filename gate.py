@@ -211,15 +211,18 @@ def install_help(host):
     host = ADVERTISE or host
     return f"""# pipeline-scheduler, one line each. Use your own GitLab PAT.
 
-# MCP (agents). --scope user makes it available in every project, terminal and
-# the VS Code Claude extension alike.
-curl -sfO http://{host}/client/mcp_server.py && claude mcp add pipeline-scheduler --scope user -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://{host} -- python3 "$PWD/mcp_server.py"
+# MCP (agents). Claude runs this file on every session, so it lives under
+# ~/.claude beside the skill, never in whatever repo you happen to be standing
+# in. --scope user registers it for every project, terminal and VS Code alike.
+mkdir -p ~/.claude/mcp/pipeline-scheduler && curl -sf http://{host}/client/mcp_server.py -o ~/.claude/mcp/pipeline-scheduler/mcp_server.py && claude mcp add pipeline-scheduler --scope user -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://{host} -- python3 ~/.claude/mcp/pipeline-scheduler/mcp_server.py
 
 # Skill (optional, tells agents when to book)
 mkdir -p ~/.claude/skills/pipeline-book && curl -sf http://{host}/client/SKILL.md -o ~/.claude/skills/pipeline-book/SKILL.md
 
 # CLI only
-curl -sfO http://{host}/client/book.py && chmod +x book.py && export SCHEDULER_URL=http://{host}
+mkdir -p ~/.local/bin && curl -sf http://{host}/client/book.py -o ~/.local/bin/book.py && chmod +x ~/.local/bin/book.py && export SCHEDULER_URL=http://{host}
+
+# Upgrade later: re-run the curl for whichever you installed. No need to re-add.
 """
 
 

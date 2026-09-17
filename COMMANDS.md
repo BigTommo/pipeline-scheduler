@@ -49,7 +49,7 @@ Only `book` and `schedule` need `GITLAB_TOKEN`.
 
 MCP:
 
-    curl -sfO http://scheduler-host:8080/client/mcp_server.py && claude mcp add pipeline-scheduler --scope user -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://scheduler-host:8080 -- python3 "$PWD/mcp_server.py"
+    mkdir -p ~/.claude/mcp/pipeline-scheduler && curl -sf http://scheduler-host:8080/client/mcp_server.py -o ~/.claude/mcp/pipeline-scheduler/mcp_server.py && claude mcp add pipeline-scheduler --scope user -e GITLAB_TOKEN=glpat-xxx -e SCHEDULER_URL=http://scheduler-host:8080 -- python3 ~/.claude/mcp/pipeline-scheduler/mcp_server.py
 
 Book one right now, no scheduling:
 
