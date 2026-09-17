@@ -16,6 +16,18 @@
 
 Changing `.env` needs `docker compose up -d` again.
 
+## Clearing the database
+
+    ./reset.sh          wipe bookings, runs and stored tokens; keep schedules
+    ./reset.sh --all    also drop recurring schedules
+
+Asks for confirmation. Tokens are re-stored on each person's next booking, so
+nobody has to reinstall anything.
+
+Nuclear alternative, also destroys the volume and `schedules.json`:
+
+    docker compose down -v
+
 ## Dashboard
 
     http://localhost:8080/          read-only queue view

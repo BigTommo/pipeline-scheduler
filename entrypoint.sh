@@ -21,13 +21,30 @@ python - <<'PY'
 import os, httpx
 auth = tuple(os.environ["PREFECT_API_AUTH_STRING"].split(":", 1)) if os.getenv("PREFECT_API_AUTH_STRING") else None
 api = "http://127.0.0.1:4200/api"
-stuck = httpx.post(f"{api}/flow_runs/filter", auth=auth, timeout=20,
-                   json={"flow_runs": {"state": {"type": {"any_": ["RUNNING", "PENDING"]}}}, "limit": 200}).json()
-for r in stuck:
+# PENDING never reached the flow body, so it cannot have triggered anything:
+# put it back in the queue rather than losing the booking. RUNNING may have
+# already POSTed to GitLab, so re-running it could trigger a second pipeline.
+# Those are crashed and alerted on instead, for a human to judge.
+from datetime import datetime, timezone
+now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+pending = httpx.post(f"{api}/flow_runs/filter", auth=auth, timeout=20,
+                     json={"flow_runs": {"state": {"type": {"any_": ["PENDING"]}}}, "limit": 200}).json()
+for r in pending:
     httpx.post(f"{api}/flow_runs/{r['id']}/set_state", auth=auth, timeout=20, json={
-        "state": {"type": "CRASHED", "message": "orphaned by a scheduler restart"}, "force": True})
-if stuck:
-    print(f"cleared {len(stuck)} orphaned run(s) from a previous restart")
+        "state": {"type": "SCHEDULED", "state_details": {"scheduled_time": now},
+                  "message": "requeued after a scheduler restart"}, "force": True})
+if pending:
+    print(f"requeued {len(pending)} booking(s) that had not started")
+
+running = httpx.post(f"{api}/flow_runs/filter", auth=auth, timeout=20,
+                     json={"flow_runs": {"state": {"type": {"any_": ["RUNNING"]}}}, "limit": 200}).json()
+for r in running:
+    httpx.post(f"{api}/flow_runs/{r['id']}/set_state", auth=auth, timeout=20, json={
+        "state": {"type": "CRASHED", "message": "orphaned by a scheduler restart; "
+                  "check GitLab in case its pipeline is still running"}, "force": True})
+if running:
+    print(f"crashed {len(running)} run(s) orphaned by a restart")
 
 for lim in httpx.post(f"{api}/v2/concurrency_limits/filter", auth=auth, timeout=20, json={}).json():
     if lim["active_slots"]:

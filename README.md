@@ -211,12 +211,22 @@ every 20 seconds. Without it, one restart silently deleted every nightly.
 Re-applied schedules get a new id, so an id you noted earlier can go stale after
 a restart. Look it up again with `./book.py schedules`.
 
+## Clearing state
+
+`./reset.sh` drops every booking, run and stored token, keeping recurring
+schedules (the gate restores them from `schedules.json` afterwards).
+`./reset.sh --all` drops those too. `docker compose down -v` is the nuclear
+option and takes the volume with it.
+
 ## Known gaps
 
 - Anyone who gets a shell in either container, or onto the Docker network, can
   read every stored PAT. Network isolation is the control, not Prefect.
 - No egress restriction yet: the Prefect container can reach the internet, not
   only gitlab.com.
-- A container restart mid-run orphans the slot and loses the watcher.
+- A restart during a run cannot tell "had already triggered a pipeline" from
+  "was waiting for a slot", so those runs are crashed and alerted rather than
+  retried, to avoid double-triggering. Bookings that had not started are
+  requeued. Rebuilding either service recreates both, since they share an image.
 - Nothing stops a pipeline triggered outside the scheduler from taking the
   runner. A `resource_group` in `.gitlab-ci.yml` is the only thing that would.
