@@ -97,8 +97,15 @@ The skill is optional and also one line:
 
     mkdir -p ~/.claude/skills/pipeline-book && curl -sf http://scheduler-host:8080/client/SKILL.md -o ~/.claude/skills/pipeline-book/SKILL.md
 
-`mcp_server.py` is a single self-contained file, stdlib only. No clone, no repo
-access, nothing to `pip install`.
+Or from GitHub, for anyone without the gate in reach:
+
+    curl -sfO https://raw.githubusercontent.com/BigTommo/pipeline-scheduler/main/mcp_server.py
+
+Prefer the gate: what it serves always matches the server that is running, while
+a GitHub copy can drift ahead of the deployment.
+
+`mcp_server.py` is a single self-contained file, stdlib only. No clone, nothing
+to `pip install`.
 
 Then ask for things in plain language: "book the priority suite for 2am",
 "what's queued", "push my 2am one back three hours".
@@ -137,6 +144,21 @@ still contend for the same slot. The project is fixed per deployment, in env.
 Both listings return **only the time, the person, and an id to act on**. Branch,
 runner tag, variables and notes are never returned, so the queue shows who holds
 a slot and when, and nothing about what they are running.
+
+## Threat model
+
+Nothing here relies on the code being secret. What it relies on:
+
+- Prefect publishes no port. The three API routes that return block values in
+  plaintext are reachable only from the gate, over the compose network.
+- The gate has a fixed set of handlers and no endpoint that returns a secret.
+- Identity is GitLab's answer to the caller's own PAT, not a claim in the body.
+- `PREFECT_AUTH` is a real secret and lives only in `.env`, never in the repo.
+
+**The gate must stay on a trusted network.** `move`, `cancel` and
+`schedules/remove` need no credential by design, because a slot is a shared team
+resource. Exposed to the internet, that is an open queue-wipe endpoint. Bind it
+to the office LAN or a VPN, never a public IP.
 
 ## Known gaps
 
