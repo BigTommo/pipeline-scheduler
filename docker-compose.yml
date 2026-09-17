@@ -32,6 +32,9 @@ services:
       PREFECT_API_URL: http://prefect:4200/api
       PREFECT_API_AUTH_STRING: ${PREFECT_AUTH}
       PROTECTED_REFS: ${PROTECTED_REFS:-main,beta,develop,ci-test,alpha-1.0.10}
+      ADVERTISE_HOST: ${ADVERTISE_HOST:-}
+    volumes:
+      - scheduler-data:/data
 
 volumes:
   scheduler-data:

@@ -34,7 +34,7 @@ On the machine that will host the scheduler (one box for the whole team):
     git clone https://github.com/BigTommo/pipeline-scheduler.git
     cd pipeline-scheduler
     cp .env.example .env     # set GITLAB_PROJECT and PREFECT_AUTH
-    docker compose up -d --build
+    ./start.sh
 
 Everyone else installs from the running gate, not from here. It serves its own
 client, so nobody needs repo access:
@@ -43,9 +43,12 @@ client, so nobody needs repo access:
 
 ## Run
 
-    docker compose up -d --build
+    ./start.sh
 
-That is the whole start command; it builds on first run and is a no-op after.
+`./start.sh` works out this machine's LAN address and advertises it, so the
+install strings teammates copy point at this host rather than their own
+localhost. Plain `docker compose up -d --build` also works, but then `/install`
+echoes back whatever hostname you happened to browse with.
 `DRY_RUN` defaults to `true`: bookings run and log, nothing reaches GitLab.
 Set `DRY_RUN=false` in `.env` and `docker compose up -d` again to go live.
 
@@ -58,6 +61,8 @@ the API. Changing anything goes through the CLI or MCP.
 The Prefect UI is deliberately not published. If you need it for internals:
 
     docker compose -f docker-compose.yml -f docker-compose.ui.yml up -d
+
+`./start.sh` does not include that override, so a plain start closes it again.
 
 That binds it to `127.0.0.1:4200` on the host only. It can hand out stored
 tokens, so never bind it to anything else.
@@ -172,6 +177,16 @@ Nothing here relies on the code being secret. What it relies on:
 `schedules/remove` need no credential by design, because a slot is a shared team
 resource. Exposed to the internet, that is an open queue-wipe endpoint. Bind it
 to the office LAN or a VPN, never a public IP.
+
+## Recurring schedules survive restarts
+
+`serve()` re-registers the deployment every time the container starts, and that
+drops whatever schedules the deployment had. So the gate keeps its own copy in
+`/data/schedules.json` and re-applies any that are missing, on every read and
+every 20 seconds. Without it, one restart silently deleted every nightly.
+
+Re-applied schedules get a new id, so an id you noted earlier can go stale after
+a restart. Look it up again with `./book.py schedules`.
 
 ## Known gaps
 

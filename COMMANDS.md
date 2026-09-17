@@ -2,8 +2,8 @@
 
 ## Stack
 
-    cp .env.example .env            # first time: set GITLAB_PROJECT, PREFECT_AUTH
-    docker compose up -d --build    # start (and restart after an .env change)
+    cp .env.example .env    # first time: set GITLAB_PROJECT, PREFECT_AUTH
+    ./start.sh              # start, advertising this machine's LAN address
     docker compose ps
     docker compose logs -f prefect
     docker compose logs -f gate

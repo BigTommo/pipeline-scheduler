@@ -3,6 +3,8 @@ GitLab PAT, so a booking cannot claim to be someone else."""
 import json
 import os
 import re
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
@@ -14,6 +16,9 @@ AUTH = tuple(os.environ["PREFECT_API_AUTH_STRING"].split(":", 1)) if os.getenv("
 DEPLOYMENT = "run-pipeline/e2e"
 PROTECTED = {r.strip() for r in os.getenv("PROTECTED_REFS", "main,beta,develop,ci-test,alpha-1.0.10").split(",")}
 UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+ADVERTISE = os.getenv("ADVERTISE_HOST", "")
+STORE = "/data/schedules.json"
+_lock = threading.Lock()
 
 
 def prefect_api(method, path, body=None):
@@ -72,7 +77,41 @@ def deployment_id():
     return prefect_api("GET", f"/deployments/name/{DEPLOYMENT}")["id"]
 
 
+def load_store():
+    try:
+        with open(STORE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_store(d):
+    with open(STORE + ".tmp", "w") as f:
+        json.dump(d, f, indent=1)
+    os.replace(STORE + ".tmp", STORE)
+
+
+def reconcile():
+    """serve() re-registers the deployment on every start and drops its
+    schedules, so this store is the source of truth and re-applies them."""
+    with _lock:
+        store = load_store()
+        if not store:
+            return
+        dep = deployment_id()
+        live = {s["id"] for s in prefect_api("GET", f"/deployments/{dep}/schedules")}
+        missing = {k: v for k, v in store.items() if k not in live}
+        if not missing:
+            return
+        for old_id, spec in missing.items():
+            made = prefect_api("POST", f"/deployments/{dep}/schedules", [spec])
+            store.pop(old_id)
+            store[made[0]["id"]] = spec
+        save_store(store)
+
+
 def schedules():
+    reconcile()
     return [{
         "id": s["id"],
         "cron": s["schedule"].get("cron"),
@@ -85,16 +124,26 @@ def add_schedule(user, b):
     check_ref(b)
     params = {k: b[k] for k in ("ref", "runner_tag", "variables", "note", "allow_protected") if k in b}
     params["requested_by"] = user
-    made = prefect_api("POST", f"/deployments/{deployment_id()}/schedules", [{
+    spec = {
         "schedule": {"cron": b["cron"], "timezone": b.get("timezone", "UTC")},
         "active": True,
         "parameters": params,
-    }])
+    }
+    made = prefect_api("POST", f"/deployments/{deployment_id()}/schedules", [spec])
+    with _lock:
+        store = load_store()
+        store[made[0]["id"]] = spec
+        save_store(store)
     return {"id": made[0]["id"], "cron": b["cron"], "requested_by": user}
 
 
 def drop_schedule(b):
+    check_id(b["schedule_id"])
     prefect_api("DELETE", f"/deployments/{deployment_id()}/schedules/{b['schedule_id']}")
+    with _lock:
+        store = load_store()
+        store.pop(b["schedule_id"], None)
+        save_store(store)
     return {"removed": b["schedule_id"]}
 
 
@@ -134,6 +183,7 @@ CLIENT = {
 
 
 def install_help(host):
+    host = ADVERTISE or host
     return f"""# pipeline-scheduler, one line each. Use your own GitLab PAT.
 
 # MCP (agents)
@@ -218,5 +268,15 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+def reconciler():
+    while True:
+        try:
+            reconcile()
+        except Exception:
+            pass
+        time.sleep(20)
+
+
 if __name__ == "__main__":
+    threading.Thread(target=reconciler, daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
