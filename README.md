@@ -171,7 +171,8 @@ team resource, so anyone can see the queue, move it, or give it back.
 Anything else is 404.
 
 A booking echoes back what was understood: ref, runner tag, variables, note, who
-and when, plus `run_name` for grepping the logs. Prefect's random run name is not
+and when, plus `run_name` for grepping the logs and a `url` that opens the
+dashboard with that row highlighted. Prefect's random run name is not
 the headline, because it tells you nothing about what you booked.
 
 `scheduled_time` is optional and defaults to now; pass an ISO UTC timestamp to

@@ -24,6 +24,7 @@
   td, th { padding:9px 12px; text-align:left; border-bottom:1px solid var(--line); }
   th { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--dim); font-weight:600; }
   tr:last-child td { border-bottom:0; }
+  tr.hit td { background:color-mix(in srgb, var(--accent) 13%, transparent); }
   .when { font-variant-numeric:tabular-nums; white-space:nowrap; }
   .who { font-weight:600; }
   .id { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; color:var(--dim); }
@@ -85,6 +86,19 @@
 const fmt = t => t ? new Date(t).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
 const esc = s => String(s ?? '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 
+function mark() {
+  const id = location.hash.slice(1);
+  if (!id) return;
+  for (const tr of document.querySelectorAll('tr')) tr.classList.remove('hit');
+  for (const td of document.querySelectorAll('.id')) {
+    if (td.textContent === id) {
+      td.parentElement.classList.add('hit');
+      td.parentElement.scrollIntoView({block: 'center', behavior: 'smooth'});
+    }
+  }
+}
+addEventListener('hashchange', mark);
+
 function table(head, rows) {
   if (!rows.length) return '<div class="empty">nothing booked</div>';
   return `<table><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows.join('')}</table>`;
@@ -106,6 +120,7 @@ async function load() {
     document.getElementById('s').innerHTML = table(['Cron','Zone','Who','Id'],
       s.schedules.map(x => `<tr><td class="when"><span class="tag">${esc(x.cron)}</span></td><td>${esc(x.timezone)}</td><td class="who">${esc(x.requested_by)}</td><td class="id">${esc(x.id)}</td></tr>`))
       .replace('nothing booked', 'no recurring schedules');
+    mark();
   } catch (e) {
     document.getElementById('q').innerHTML = `<div class="empty">gate unreachable: ${esc(e.message)}</div>`;
   }

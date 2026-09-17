@@ -56,7 +56,7 @@ def check_ref(b):
     b["runner_tag"] = tag
 
 
-def book(user, b):
+def book(user, b, host):
     check_ref(b)
     dep = prefect_api("GET", f"/deployments/name/{DEPLOYMENT}")
     params = {k: b[k] for k in ("ref", "runner_tag", "variables", "note", "allow_protected") if k in b}
@@ -75,6 +75,7 @@ def book(user, b):
         "variables": params.get("variables", {}),
         "note": params.get("note", ""),
         "run_name": run["name"],
+        "url": f"http://{ADVERTISE or host}/#{run['id']}",
     }
 
 
@@ -172,7 +173,7 @@ def schedules():
     } for s in prefect_api("GET", f"/deployments/{deployment_id()}/schedules")]
 
 
-def add_schedule(user, b):
+def add_schedule(user, b, host):
     check_ref(b)
     params = {k: b[k] for k in ("ref", "runner_tag", "variables", "note", "allow_protected") if k in b}
     params["requested_by"] = user
@@ -195,6 +196,7 @@ def add_schedule(user, b):
         "requested_by": user,
         "variables": params.get("variables", {}),
         "note": params.get("note", ""),
+        "url": f"http://{ADVERTISE or host}/#{made[0]['id']}",
     }
 
 
@@ -332,7 +334,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
             if authed:
                 stash(user, token)
-                self.reply(200, handler(user, body))
+                self.reply(200, handler(user, body, self.headers.get("Host", "localhost:8080")))
             else:
                 self.reply(200, handler(body))
         except PermissionError as e:

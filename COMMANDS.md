@@ -93,6 +93,9 @@ Book one right now:
       -H "Authorization: Bearer $GITLAB_TOKEN" -H 'Content-Type: application/json' \
       -d '{"ref":"dev/1.0.13","variables":{"RUN_BUILD":"true"}}'
 
+The response echoes what was booked, plus a `url` that opens the dashboard with
+that row highlighted.
+
 Add `"scheduled_time":"2026-09-18T02:00:00Z"` (UTC) to book for later.
 `curl http://scheduler-host:8080/fields` lists every key and its default.
 

@@ -115,6 +115,8 @@ def describe(r, when):
         bits.append("variables: " + ", ".join(f"{k}={v}" for k, v in r["variables"].items()))
     if r.get("note"):
         bits.append(f"note: {r['note']}")
+    if r.get("url"):
+        bits.append(f"queue: {r['url']}")
     return "\n".join(bits)
 
 

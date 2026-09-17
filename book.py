@@ -49,6 +49,8 @@ def show(r, when=None):
         print("  vars   " + " ".join(f"{k}={v}" for k, v in r["variables"].items()))
     if r.get("note"):
         print(f"  note   {r['note']}")
+    if r.get("url"):
+        print(f"  queue  {r['url']}")
 
 
 def local(iso):
