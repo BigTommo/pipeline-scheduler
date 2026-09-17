@@ -76,6 +76,21 @@ def bookings():
     } for r in runs]
 
 
+def recent():
+    """Finished runs, so a booking that has already fired is still visible."""
+    runs = prefect_api("POST", "/flow_runs/filter", {
+        "flow_runs": {"state": {"type": {"any_": ["COMPLETED", "FAILED", "CRASHED", "CANCELLED"]}}},
+        "sort": "END_TIME_DESC",
+        "limit": 10,
+    })
+    return [{
+        "id": r["id"],
+        "at": r.get("end_time"),
+        "state": r["state"]["type"],
+        "requested_by": r["parameters"].get("requested_by"),
+    } for r in runs]
+
+
 def deployment_id():
     return prefect_api("GET", f"/deployments/name/{DEPLOYMENT}")["id"]
 
@@ -175,7 +190,7 @@ def cancel(b):
 # team resource, so anyone can reschedule or release one.
 AUTHED = {"/book": book, "/schedules/add": add_schedule}
 OPEN = {"/move": move, "/cancel": cancel, "/schedules/remove": drop_schedule}
-READS = {"/bookings": bookings, "/schedules": schedules}
+READS = {"/bookings": bookings, "/schedules": schedules, "/recent": recent}
 
 # The client, served from here so a private repo is not in the way.
 CLIENT = {
