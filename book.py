@@ -41,6 +41,21 @@ def when(at, delay):
     return t.isoformat().replace("+00:00", "Z")
 
 
+def show(r, when=None):
+    print(f"booked {r['id']}")
+    print(f"  when   {when or local(r['at'])}")
+    print(f"  ref    {r['ref']} on {r['runner_tag']}, as {r['requested_by']}")
+    if r.get("variables"):
+        print("  vars   " + " ".join(f"{k}={v}" for k, v in r["variables"].items()))
+    if r.get("note"):
+        print(f"  note   {r['note']}")
+
+
+def local(iso):
+    t = datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone()
+    return t.strftime("%a %d %b %H:%M %Z")
+
+
 def book(a):
     body = {
         "variables": dict(v.split("=", 1) for v in a.var),
@@ -51,12 +66,12 @@ def book(a):
         "ref": a.ref,
     }
     r = call("POST", "/book", body)
-    print(r["id"], r["name"], r["at"])
+    show(r)
 
 
 def ls(a):
     for b in call("GET", "/bookings")["bookings"]:
-        print(b["id"], (b["at"] or "")[:16], b["requested_by"])
+        print(b["id"], local(b["at"]) if b["at"] else "", b["requested_by"])
 
 
 def schedules(a):
@@ -75,7 +90,7 @@ def add_schedule(a):
         "ref": a.ref,
     }
     r = call("POST", "/schedules/add", body)
-    print(r["id"], r["cron"], r["requested_by"])
+    show(r, when=f"{r['cron']} {r['timezone']}")
 
 
 def drop_schedule(a):

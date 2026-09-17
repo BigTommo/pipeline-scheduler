@@ -66,7 +66,16 @@ def book(user, b):
         "parameters": params,
         "state": {"type": "SCHEDULED", "state_details": {"scheduled_time": at}},
     })
-    return {"id": run["id"], "name": run["name"], "at": run["state"]["state_details"]["scheduled_time"]}
+    return {
+        "id": run["id"],
+        "at": run["state"]["state_details"]["scheduled_time"],
+        "ref": params["ref"],
+        "runner_tag": params["runner_tag"],
+        "requested_by": user,
+        "variables": params.get("variables", {}),
+        "note": params.get("note", ""),
+        "run_name": run["name"],
+    }
 
 
 def bookings():
@@ -177,7 +186,16 @@ def add_schedule(user, b):
         store = load_store()
         store[made[0]["id"]] = spec
         save_store(store)
-    return {"id": made[0]["id"], "cron": b["cron"], "requested_by": user}
+    return {
+        "id": made[0]["id"],
+        "cron": b["cron"],
+        "timezone": b.get("timezone", "UTC"),
+        "ref": params["ref"],
+        "runner_tag": params["runner_tag"],
+        "requested_by": user,
+        "variables": params.get("variables", {}),
+        "note": params.get("note", ""),
+    }
 
 
 def drop_schedule(b):

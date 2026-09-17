@@ -108,6 +108,16 @@ TOOLS = [
 ]
 
 
+def describe(r, when):
+    bits = [f"Booked {r['id']}", f"when: {when}",
+            f"ref: {r['ref']} on {r['runner_tag']}, as {r['requested_by']}"]
+    if r.get("variables"):
+        bits.append("variables: " + ", ".join(f"{k}={v}" for k, v in r["variables"].items()))
+    if r.get("note"):
+        bits.append(f"note: {r['note']}")
+    return "\n".join(bits)
+
+
 def list_bookings():
     rows = call("GET", "/bookings")["bookings"]
     if not rows:
@@ -127,7 +137,7 @@ def add_schedule(cron, ref, timezone="UTC", runner_tag="perentie-runner", variab
     body = {"cron": cron, "ref": ref, "timezone": timezone, "runner_tag": runner_tag,
             "variables": variables or {}, "note": note, "allow_protected": allow_protected}
     r = call("POST", "/schedules/add", body)
-    return f"Scheduled {r['id']}: {r['cron']} as {r['requested_by']}"
+    return describe(r, f"{r['cron']} ({r['timezone']})")
 
 
 def remove_schedule(schedule_id):
@@ -139,7 +149,7 @@ def book_pipeline(ref, runner_tag="perentie-runner", variables=None, note="",
     body = {"ref": ref, "runner_tag": runner_tag, "variables": variables or {}, "note": note,
             "allow_protected": allow_protected, "scheduled_time": when(start_at, start_in)}
     r = call("POST", "/book", body)
-    return f"Booked {r['id']} ({r['name']}) on {runner_tag} at {r['at']}"
+    return describe(r, r["at"])
 
 
 def move_booking(run_id, start_in=None, start_at=None):
