@@ -10,6 +10,7 @@ ENV PREFECT_API_URL=http://127.0.0.1:4200/api \
 
 WORKDIR /app
 COPY scheduler.py gate.py book.py mcp_server.py entrypoint.sh ./
+COPY dashboard.html ./
 COPY skill/SKILL.md ./skill/
 RUN chmod +x entrypoint.sh
 

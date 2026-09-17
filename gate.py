@@ -178,6 +178,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def do_GET(self):
+        if self.path in ("/", "/index.html"):
+            return self.send_text(open("dashboard.html").read(), "text/html; charset=utf-8")
         if self.path == "/install":
             return self.send_text(install_help(self.headers.get("Host", "localhost:8080")), "text/plain")
         if self.path in CLIENT:

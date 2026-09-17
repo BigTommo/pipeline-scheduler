@@ -49,6 +49,19 @@ That is the whole start command; it builds on first run and is a no-op after.
 `DRY_RUN` defaults to `true`: bookings run and log, nothing reaches GitLab.
 Set `DRY_RUN=false` in `.env` and `docker compose up -d` again to go live.
 
+## Dashboard
+
+`http://scheduler-host:8080/` is a read-only queue view: who holds a slot, when,
+and the recurring schedules. Refreshes itself, no login, same minimal fields as
+the API. Changing anything goes through the CLI or MCP.
+
+The Prefect UI is deliberately not published. If you need it for internals:
+
+    docker compose -f docker-compose.yml -f docker-compose.ui.yml up -d
+
+That binds it to `127.0.0.1:4200` on the host only. It can hand out stored
+tokens, so never bind it to anything else.
+
 ## Env
 
 | Var | Default | |
@@ -133,7 +146,7 @@ team resource, so anyone can see the queue, move it, or give it back.
 | | `POST /schedules/remove` `{schedule_id}` | no |
 | | `POST /book` `{ref, scheduled_time, variables?, runner_tag?, note?, allow_protected?}` | **yes** |
 | | `POST /schedules/add` `{ref, cron, timezone?, ...same}` | **yes** |
-| | `GET /install`, `GET /client/{mcp_server.py,book.py,SKILL.md}` | no |
+| | `GET /`, `GET /install`, `GET /client/{mcp_server.py,book.py,SKILL.md}` | no |
 
 Anything else is 404.
 

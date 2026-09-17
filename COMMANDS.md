@@ -14,6 +14,14 @@
 
 Changing `.env` needs `docker compose up -d` again.
 
+## Dashboard
+
+    http://localhost:8080/          read-only queue view
+
+Prefect's own UI, loopback only, when you need internals:
+
+    docker compose -f docker-compose.yml -f docker-compose.ui.yml up -d
+
 ## Booking
 
     export GITLAB_TOKEN=glpat-xxx

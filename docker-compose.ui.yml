@@ -1,0 +1,10 @@
+# Opt-in: exposes the Prefect UI on loopback only, for poking at internals.
+# It has no auth beyond PREFECT_AUTH and it can hand out stored tokens, so never
+# bind it to anything but 127.0.0.1.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ui.yml up -d
+
+services:
+  prefect:
+    ports:
+      - "127.0.0.1:${PREFECT_UI_PORT:-4200}:4200"
