@@ -98,6 +98,24 @@ def recent():
     } for r in runs]
 
 
+def fields():
+    """What you may put in a /book payload. Driven by config so it cannot drift."""
+    return [
+        {"name": "ref", "default": "required",
+         "what": "Branch to run against."},
+        {"name": "variables", "default": "{}",
+         "what": "GitLab pipeline variables. Values must be strings, so \"true\" not true."},
+        {"name": "scheduled_time", "default": "now",
+         "what": "ISO 8601 UTC, e.g. 2026-09-18T02:00:00Z. Omit to run as soon as a slot frees."},
+        {"name": "runner_tag", "default": TAGS[0],
+         "what": "One of " + ", ".join(TAGS) + ". Each has its own queue of one."},
+        {"name": "note", "default": "none",
+         "what": "Free text label. Reaches the pipeline as part of SCHEDULER_LABEL."},
+        {"name": "allow_protected", "default": "false",
+         "what": "Required to book " + ", ".join(sorted(PROTECTED)) + "."},
+    ]
+
+
 def deployment_id():
     return prefect_api("GET", f"/deployments/name/{DEPLOYMENT}")["id"]
 
@@ -197,7 +215,7 @@ def cancel(b):
 # team resource, so anyone can reschedule or release one.
 AUTHED = {"/book": book, "/schedules/add": add_schedule}
 OPEN = {"/move": move, "/cancel": cancel, "/schedules/remove": drop_schedule}
-READS = {"/bookings": bookings, "/schedules": schedules, "/recent": recent}
+READS = {"/bookings": bookings, "/schedules": schedules, "/recent": recent, "/fields": fields}
 
 # The client, served from here so a private repo is not in the way.
 CLIENT = {

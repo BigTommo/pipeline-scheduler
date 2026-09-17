@@ -70,6 +70,12 @@
      <span id="qbwhen"></span>.</p>
   <div class="block"><button class="btn" data-for="qbl">Copy</button><pre id="qbl">loading</pre></div>
 
+  <h2>Payload fields</h2>
+  <p class="hint">Everything you can put in the JSON. <code>requested_by</code> is not
+     one of them: it comes from your token, so a booking is always in your name and
+     cannot be made in someone else's. Use <code>note</code> to label what it is for.</p>
+  <div class="card"><div id="f"><div class="empty">loading</div></div></div>
+
   <h2>Install</h2>
   <div class="block"><button class="btn" data-for="i">Copy</button><pre id="i">loading</pre></div>
 
@@ -104,6 +110,10 @@ async function load() {
     document.getElementById('q').innerHTML = `<div class="empty">gate unreachable: ${esc(e.message)}</div>`;
   }
 }
+fetch('/fields').then(r => r.json()).then(d => {
+  document.getElementById('f').innerHTML = table(['Field','Default','What it does'],
+    d.fields.map(x => `<tr><td class="id">${esc(x.name)}</td><td class="when">${esc(x.default)}</td><td>${esc(x.what)}</td></tr>`));
+});
 fetch('/install').then(r => r.text()).then(t => document.getElementById('i').textContent = t.trim());
 let quickTemplate = '';
 function renderQuick() {
