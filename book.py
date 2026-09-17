@@ -48,9 +48,8 @@ def book(a):
         "note": a.note,
         "allow_protected": a.allow_protected,
         "scheduled_time": when(a.at, getattr(a, "in")),
+        "ref": a.ref,
     }
-    if a.ref:
-        body["ref"] = a.ref
     r = call("POST", "/book", body)
     print(r["id"], r["name"], r["at"])
 
@@ -73,9 +72,8 @@ def add_schedule(a):
         "runner_tag": a.tag,
         "note": a.note,
         "allow_protected": a.allow_protected,
+        "ref": a.ref,
     }
-    if a.ref:
-        body["ref"] = a.ref
     r = call("POST", "/schedules/add", body)
     print(r["id"], r["cron"], r["requested_by"])
 
@@ -99,7 +97,7 @@ def main():
 
     b = sub.add_parser("book")
     b.add_argument("--tag", default="perentie-runner")
-    b.add_argument("--ref")
+    b.add_argument("--ref", required=True, help="branch to run against")
     b.add_argument("--var", action="append", default=[])
     b.add_argument("--note", default="")
     b.add_argument("--allow-protected", action="store_true")
@@ -114,7 +112,7 @@ def main():
     sa.add_argument("cron", help="e.g. '0 2 * * *'")
     sa.add_argument("--tz", default="UTC")
     sa.add_argument("--tag", default="perentie-runner")
-    sa.add_argument("--ref")
+    sa.add_argument("--ref", required=True, help="branch to run against")
     sa.add_argument("--var", action="append", default=[])
     sa.add_argument("--note", default="")
     sa.add_argument("--allow-protected", action="store_true")

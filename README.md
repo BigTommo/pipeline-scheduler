@@ -56,7 +56,7 @@ Set `DRY_RUN=false` in `.env` and `docker compose up -d` again to go live.
 | `GITLAB_PROJECT` | required | path or numeric id |
 | `PREFECT_AUTH` | required | `user:pass`, internal only, never leaves the box |
 | `GATE_PORT` | `8080` | published port |
-| `DEFAULT_REF` | `dev/1.0.13` | |
+| `DEFAULT_REF` | `dev/1.0.13` | backstop only; every booking names its own branch |
 | `RUNNER_TAGS` | `perentie-runner,tern-runner` | one concurrency limit each, value 1 |
 | `PROTECTED_REFS` | `main,beta,develop,ci-test,alpha-1.0.10` | refused without `allow_protected` |
 | `POLL_SECONDS` | `30` | |
@@ -71,15 +71,15 @@ Set your own PAT and point at the gate:
     export SCHEDULER_URL=http://scheduler-host:8080
 
     ./book.py list
-    ./book.py book --in 2h --var RUN_CYPRESS_TESTS=true --var "CYPRESS_STAGES=setup & priority"
-    ./book.py book --at "2026-09-18 02:00" --tag tern-runner --ref dev/1.0.13
+    ./book.py book --ref dev/1.0.13 --in 2h --var RUN_CYPRESS_TESTS=true --var "CYPRESS_STAGES=setup & priority"
+    ./book.py book --ref dev/1.0.13 --at "2026-09-18 02:00" --tag tern-runner
     ./book.py move <run-id> --in 90m
     ./book.py cancel <run-id>
 
 Recurring schedules:
 
     ./book.py schedules
-    ./book.py schedule '0 2 * * *' --tz Australia/Adelaide --var RUN_CYPRESS_TESTS=true
+    ./book.py schedule '0 2 * * *' --ref dev/1.0.13 --tz Australia/Adelaide --var RUN_CYPRESS_TESTS=true
     ./book.py unschedule <schedule-id>
 
 `list`, `schedules`, `move`, `cancel` and `unschedule` need no token. `book` and
@@ -124,11 +124,15 @@ team resource, so anyone can see the queue, move it, or give it back.
 | | `POST /move` `{run_id, scheduled_time}` | no |
 | | `POST /cancel` `{run_id}` | no |
 | | `POST /schedules/remove` `{schedule_id}` | no |
-| | `POST /book` `{scheduled_time, variables?, ref?, runner_tag?, note?, allow_protected?}` | **yes** |
-| | `POST /schedules/add` `{cron, timezone?, ...same}` | **yes** |
+| | `POST /book` `{ref, scheduled_time, variables?, runner_tag?, note?, allow_protected?}` | **yes** |
+| | `POST /schedules/add` `{ref, cron, timezone?, ...same}` | **yes** |
 | | `GET /install`, `GET /client/{mcp_server.py,book.py,SKILL.md}` | no |
 
 Anything else is 404.
+
+`ref` is required on both. It is payload for GitLab, not a scheduling input:
+queueing is keyed on `runner_tag` alone, so two bookings on different branches
+still contend for the same slot. The project is fixed per deployment, in env.
 
 Both listings return **only the time, the person, and an id to act on**. Branch,
 runner tag, variables and notes are never returned, so the queue shows who holds

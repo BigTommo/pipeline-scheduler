@@ -26,16 +26,17 @@ tell them it will start when the slot frees.
 ## Commands
 
     ./book.py list
-    ./book.py book --in 2h --var RUN_CYPRESS_TESTS=true --var "CYPRESS_STAGES=setup & priority"
-    ./book.py book --at "2026-09-18 02:00" --tag tern-runner
+    ./book.py book --ref <branch> --in 2h --var RUN_CYPRESS_TESTS=true --var "CYPRESS_STAGES=setup & priority"
+    ./book.py book --ref <branch> --at "2026-09-18 02:00" --tag tern-runner
     ./book.py move <run-id> --in 90m
     ./book.py cancel <run-id>
     ./book.py schedules
-    ./book.py schedule '0 2 * * *' --tz Australia/Adelaide --var RUN_CYPRESS_TESTS=true
+    ./book.py schedule '0 2 * * *' --ref <branch> --tz Australia/Adelaide --var RUN_CYPRESS_TESTS=true
     ./book.py unschedule <schedule-id>
 
 Identity comes from the caller's own GitLab PAT, so there is no way to book for
-someone else and nothing to pass. `--in` takes
+someone else and nothing to pass. `--ref` is required: ask which branch rather
+than assuming the one that happens to be checked out. `--in` takes
 `30m`/`2h`/`1d`; `--at` takes local time. Omit both to queue immediately.
 `--tag` is `perentie-runner` (default) or `tern-runner`. `--ref` overrides the
 branch.

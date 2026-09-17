@@ -12,7 +12,6 @@ GITLAB = os.getenv("GITLAB_URL", "https://gitlab.com").rstrip("/")
 PREFECT = os.getenv("PREFECT_API_URL", "http://prefect:4200/api")
 AUTH = tuple(os.environ["PREFECT_API_AUTH_STRING"].split(":", 1)) if os.getenv("PREFECT_API_AUTH_STRING") else None
 DEPLOYMENT = "run-pipeline/e2e"
-DEFAULT_REF = os.getenv("DEFAULT_REF", "dev/1.0.13")
 PROTECTED = {r.strip() for r in os.getenv("PROTECTED_REFS", "main,beta,develop,ci-test,alpha-1.0.10").split(",")}
 UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
@@ -35,9 +34,16 @@ def stash(user, token):
     Secret(value=token).save(f"gitlab-token-{user}", overwrite=True)
 
 
+def check_ref(b):
+    ref = b.get("ref")
+    if not ref:
+        raise ValueError("ref is required: name the branch this runs against")
+    if ref in PROTECTED and not b.get("allow_protected"):
+        raise ValueError(f"{ref} is a publish branch; pass allow_protected if you mean it")
+
+
 def book(user, b):
-    if b.get("ref", DEFAULT_REF) in PROTECTED and not b.get("allow_protected"):
-        raise ValueError(f"{b.get('ref', DEFAULT_REF)} is a publish branch; pass allow_protected if you mean it")
+    check_ref(b)
     dep = prefect_api("GET", f"/deployments/name/{DEPLOYMENT}")
     params = {k: b[k] for k in ("ref", "runner_tag", "variables", "note", "allow_protected") if k in b}
     params["requested_by"] = user
@@ -76,8 +82,7 @@ def schedules():
 
 
 def add_schedule(user, b):
-    if b.get("ref", DEFAULT_REF) in PROTECTED and not b.get("allow_protected"):
-        raise ValueError(f"{b.get('ref', DEFAULT_REF)} is a publish branch; pass allow_protected if you mean it")
+    check_ref(b)
     params = {k: b[k] for k in ("ref", "runner_tag", "variables", "note", "allow_protected") if k in b}
     params["requested_by"] = user
     made = prefect_api("POST", f"/deployments/{deployment_id()}/schedules", [{

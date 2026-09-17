@@ -20,15 +20,15 @@ Changing `.env` needs `docker compose up -d` again.
     export SCHEDULER_URL=http://localhost:8080
 
     ./book.py list
-    ./book.py book --in 2h --var RUN_BUILD=true --var RUN_UNIT_TESTS=false
-    ./book.py book --at "2026-09-18 02:00" --tag tern-runner
+    ./book.py book --ref dev/1.0.13 --in 2h --var RUN_BUILD=true --var RUN_UNIT_TESTS=false
+    ./book.py book --ref dev/1.0.13 --at "2026-09-18 02:00" --tag tern-runner
     ./book.py move <run-id> --in 90m
     ./book.py cancel <run-id>
 
 ## Recurring schedules
 
     ./book.py schedules
-    ./book.py schedule '0 2 * * *' --tz Australia/Adelaide --var RUN_CYPRESS_TESTS=true
+    ./book.py schedule '0 2 * * *' --ref dev/1.0.13 --tz Australia/Adelaide --var RUN_CYPRESS_TESTS=true
     ./book.py unschedule <schedule-id>
 
 Only `book` and `schedule` need `GITLAB_TOKEN`.

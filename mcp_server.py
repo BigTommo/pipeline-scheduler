@@ -60,11 +60,12 @@ TOOLS = [
             "properties": {
                 "runner_tag": {"type": "string", "enum": ["perentie-runner", "tern-runner"]},
                 "variables": {"type": "object", "description": "GitLab pipeline variables, string values."},
-                "ref": {"type": "string", "description": "Branch. Defaults to the server's DEFAULT_REF."},
+                "ref": {"type": "string", "description": "Branch to run against. Required; ask the user rather than guessing."},
                 "note": {"type": "string", "description": "Why this run was booked. Shown in the queue."},
                 "allow_protected": {"type": "boolean", "description": "Required to book a publish branch (main, beta, develop, ci-test, alpha-1.0.10). Only set when the user explicitly asked for that branch."},
                 **TIME,
             },
+            "required": ["ref"],
         },
     },
     {
@@ -86,7 +87,7 @@ TOOLS = [
                 "note": {"type": "string"},
                 "allow_protected": {"type": "boolean"},
             },
-            "required": ["cron"],
+            "required": ["cron", "ref"],
         },
     },
     {
@@ -121,12 +122,10 @@ def list_schedules():
     return "\n".join(f"{s['id']} {s['cron']} {s['timezone']} {s['requested_by']}" for s in rows)
 
 
-def add_schedule(cron, timezone="UTC", runner_tag="perentie-runner", variables=None,
-                 ref=None, note="", allow_protected=False):
-    body = {"cron": cron, "timezone": timezone, "runner_tag": runner_tag,
+def add_schedule(cron, ref, timezone="UTC", runner_tag="perentie-runner", variables=None,
+                 note="", allow_protected=False):
+    body = {"cron": cron, "ref": ref, "timezone": timezone, "runner_tag": runner_tag,
             "variables": variables or {}, "note": note, "allow_protected": allow_protected}
-    if ref:
-        body["ref"] = ref
     r = call("POST", "/schedules/add", body)
     return f"Scheduled {r['id']}: {r['cron']} as {r['requested_by']}"
 
@@ -135,12 +134,10 @@ def remove_schedule(schedule_id):
     return f"Removed {call('POST', '/schedules/remove', {'schedule_id': schedule_id})['removed']}"
 
 
-def book_pipeline(runner_tag="perentie-runner", variables=None, ref=None, note="",
+def book_pipeline(ref, runner_tag="perentie-runner", variables=None, note="",
                   allow_protected=False, start_in=None, start_at=None):
-    body = {"runner_tag": runner_tag, "variables": variables or {}, "note": note,
+    body = {"ref": ref, "runner_tag": runner_tag, "variables": variables or {}, "note": note,
             "allow_protected": allow_protected, "scheduled_time": when(start_at, start_in)}
-    if ref:
-        body["ref"] = ref
     r = call("POST", "/book", body)
     return f"Booked {r['id']} ({r['name']}) on {runner_tag} at {r['at']}"
 
@@ -163,7 +160,7 @@ def handle(msg):
         result = {
             "protocolVersion": msg.get("params", {}).get("protocolVersion", "2025-06-18"),
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": "pipeline-scheduler", "version": "2.2.0"},
+            "serverInfo": {"name": "pipeline-scheduler", "version": "2.3.0"},
         }
     elif method == "tools/list":
         result = {"tools": TOOLS}
