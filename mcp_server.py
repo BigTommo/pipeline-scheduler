@@ -58,7 +58,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "runner_tag": {"type": "string", "enum": ["perentie-runner", "tern-runner"]},
+                "runner_tag": {"type": "string", "description": "Runner tag; the scheduler's RUNNER_TAGS decides which are valid. Defaults to perentie-runner."},
                 "variables": {"type": "object", "description": "GitLab pipeline variables, string values."},
                 "ref": {"type": "string", "description": "Branch to run against. Required; ask the user rather than guessing."},
                 "note": {"type": "string", "description": "Why this run was booked. Shown in the queue."},
@@ -81,7 +81,7 @@ TOOLS = [
             "properties": {
                 "cron": {"type": "string", "description": "Cron expression, e.g. '0 2 * * *'."},
                 "timezone": {"type": "string", "description": "IANA zone, e.g. Australia/Adelaide. Defaults to UTC."},
-                "runner_tag": {"type": "string", "enum": ["perentie-runner", "tern-runner"]},
+                "runner_tag": {"type": "string", "description": "Runner tag; the scheduler's RUNNER_TAGS decides which are valid. Defaults to perentie-runner."},
                 "variables": {"type": "object"},
                 "ref": {"type": "string"},
                 "note": {"type": "string"},
