@@ -59,6 +59,7 @@ Read-only. Anyone on the LAN can open it, no token needed.
 
     ./book.py list
     ./book.py book --ref dev/1.0.13 --in 2h --var RUN_BUILD=true --var RUN_UNIT_TESTS=false
+    ./book.py book --ref dev/1.0.13 --in 2h --input RUN_CYPRESS_TESTS=true --input RUN_PARALLEL=16
     ./book.py book --ref dev/1.0.13 --at "2026-09-18 02:00" --tag tern-runner --note "nightly"
     ./book.py move <run-id> --in 90m
     ./book.py cancel <run-id>
@@ -92,6 +93,9 @@ Book one right now:
     curl -sf -X POST http://scheduler-host:8080/book \
       -H "Authorization: Bearer $GITLAB_TOKEN" -H 'Content-Type: application/json' \
       -d '{"ref":"dev/1.0.13","variables":{"RUN_BUILD":"true"}}'
+
+`inputs` takes typed GitLab pipeline inputs, e.g. `"inputs":{"RUN_PARALLEL":16,"DISTRIBUTION":"pull"}`.
+Use them for anything `.gitlab-ci.yml` reads as `$[[ inputs.X ]]`; a variable cannot reach those.
 
 The response echoes what was booked, plus a `url` that opens the dashboard with
 that row highlighted.

@@ -164,7 +164,7 @@ team resource, so anyone can see the queue, move it, or give it back.
 | | `POST /move` `{run_id, scheduled_time}` | no |
 | | `POST /cancel` `{run_id}` | no |
 | | `POST /schedules/remove` `{schedule_id}` | no |
-| | `POST /book` `{ref, scheduled_time?, variables?, runner_tag?, note?, allow_protected?}` | **yes** |
+| | `POST /book` `{ref, scheduled_time?, variables?, inputs?, runner_tag?, note?, allow_protected?}` | **yes** |
 | | `POST /schedules/add` `{ref, cron, timezone?, ...same}` | **yes** |
 | | `GET /`, `GET /install`, `GET /client/{mcp_server.py,book.py,SKILL.md}` | no |
 

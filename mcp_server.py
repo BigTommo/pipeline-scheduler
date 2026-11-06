@@ -60,6 +60,7 @@ TOOLS = [
             "properties": {
                 "runner_tag": {"type": "string", "description": "Runner tag; the scheduler's RUNNER_TAGS decides which are valid. Defaults to perentie-runner."},
                 "variables": {"type": "object", "description": "GitLab pipeline variables, string values."},
+                "inputs": {"type": "object", "description": "GitLab pipeline inputs (spec:inputs) with typed values: booleans, numbers, strings. Use for anything .gitlab-ci.yml reads as $[[ inputs.X ]] (parallel counts, ISOLATED_STACKS, DISTRIBUTION, the pipeline name); a variable cannot change those. RUNNER_TAG is set from runner_tag."},
                 "ref": {"type": "string", "description": "Branch to run against. Required; ask the user rather than guessing."},
                 "note": {"type": "string", "description": "Why this run was booked. Shown in the queue."},
                 "allow_protected": {"type": "boolean", "description": "Required to book a publish branch (main, beta, develop, ci-test, alpha-1.0.10). Only set when the user explicitly asked for that branch."},
@@ -83,6 +84,7 @@ TOOLS = [
                 "timezone": {"type": "string", "description": "IANA zone, e.g. Australia/Adelaide. Defaults to UTC."},
                 "runner_tag": {"type": "string", "description": "Runner tag; the scheduler's RUNNER_TAGS decides which are valid. Defaults to perentie-runner."},
                 "variables": {"type": "object"},
+                "inputs": {"type": "object", "description": "GitLab pipeline inputs (spec:inputs) with typed values: booleans, numbers, strings. Use for anything .gitlab-ci.yml reads as $[[ inputs.X ]] (parallel counts, ISOLATED_STACKS, DISTRIBUTION, the pipeline name); a variable cannot change those. RUNNER_TAG is set from runner_tag."},
                 "ref": {"type": "string"},
                 "note": {"type": "string"},
                 "allow_protected": {"type": "boolean"},
@@ -113,6 +115,8 @@ def describe(r, when):
             f"ref: {r['ref']} on {r['runner_tag']}, as {r['requested_by']}"]
     if r.get("variables"):
         bits.append("variables: " + ", ".join(f"{k}={v}" for k, v in r["variables"].items()))
+    if r.get("inputs"):
+        bits.append("inputs: " + ", ".join(f"{k}={v}" for k, v in r["inputs"].items()))
     if r.get("note"):
         bits.append(f"note: {r['note']}")
     if r.get("url"):
@@ -135,9 +139,11 @@ def list_schedules():
 
 
 def add_schedule(cron, ref, timezone="UTC", runner_tag="perentie-runner", variables=None,
-                 note="", allow_protected=False):
+                 note="", allow_protected=False, inputs=None):
     body = {"cron": cron, "ref": ref, "timezone": timezone, "runner_tag": runner_tag,
             "variables": variables or {}, "note": note, "allow_protected": allow_protected}
+    if inputs:
+        body["inputs"] = inputs
     r = call("POST", "/schedules/add", body)
     return describe(r, f"{r['cron']} ({r['timezone']})")
 
@@ -147,9 +153,11 @@ def remove_schedule(schedule_id):
 
 
 def book_pipeline(ref, runner_tag="perentie-runner", variables=None, note="",
-                  allow_protected=False, start_in=None, start_at=None):
+                  allow_protected=False, start_in=None, start_at=None, inputs=None):
     body = {"ref": ref, "runner_tag": runner_tag, "variables": variables or {}, "note": note,
             "allow_protected": allow_protected, "scheduled_time": when(start_at, start_in)}
+    if inputs:
+        body["inputs"] = inputs
     r = call("POST", "/book", body)
     return describe(r, r["at"])
 

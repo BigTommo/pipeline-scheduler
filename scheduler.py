@@ -45,6 +45,7 @@ def on_bad(flow, flow_run, state):
 def run_pipeline(
     ref: str = DEFAULT_REF,
     variables: dict | None = None,
+    inputs: dict | None = None,
     runner_tag: str = RUNNER_TAGS[0],
     requested_by: str = "",
     note: str = "",
@@ -60,17 +61,26 @@ def run_pipeline(
     vars["RUNNER_TAG"] = runner_tag
     vars["SCHEDULER_REQUESTED_BY"] = requested_by
     vars["SCHEDULER_LABEL"] = f"booked by {requested_by}" + (f" ({note})" if note else "")
+    # Inputs are fixed when GitLab compiles the config (parallel:, extends:,
+    # the pipeline name), which a variable can never reach. The queue's tag is
+    # the runner, so it wins over any RUNNER_TAG the caller passed.
+    ins = dict(inputs or {})
+    if ins:
+        ins["RUNNER_TAG"] = runner_tag
 
     with concurrency(runner_tag):
         if DRY_RUN:
             log.info("DRY_RUN, would trigger %s for %s: %s", ref, requested_by, vars)
-            return {"ref": ref, "requested_by": requested_by, "variables": vars}
+            return {"ref": ref, "requested_by": requested_by, "variables": vars, "inputs": ins}
 
         token = Secret.load(f"gitlab-token-{requested_by}").get()
-        pipeline = api("POST", "/pipeline", token, json={
+        body = {
             "ref": ref,
             "variables": [{"key": k, "value": str(v)} for k, v in vars.items()],
-        })
+        }
+        if ins:
+            body["inputs"] = ins
+        pipeline = api("POST", "/pipeline", token, json=body)
         log.info("started %s", pipeline["web_url"])
 
         while holds_runners(pipeline["id"], token):

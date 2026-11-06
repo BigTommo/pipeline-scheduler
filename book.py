@@ -41,12 +41,28 @@ def when(at, delay):
     return t.isoformat().replace("+00:00", "Z")
 
 
+def typed(pairs):
+    """KEY=value to a typed input: true/false to booleans, integers to numbers."""
+    out = {}
+    for p in pairs:
+        k, v = p.split("=", 1)
+        if v in ("true", "false"):
+            out[k] = v == "true"
+        elif re.fullmatch(r"-?\d+", v):
+            out[k] = int(v)
+        else:
+            out[k] = v
+    return out
+
+
 def show(r, when=None):
     print(f"booked {r['id']}")
     print(f"  when   {when or local(r['at'])}")
     print(f"  ref    {r['ref']} on {r['runner_tag']}, as {r['requested_by']}")
     if r.get("variables"):
         print("  vars   " + " ".join(f"{k}={v}" for k, v in r["variables"].items()))
+    if r.get("inputs"):
+        print("  inputs " + " ".join(f"{k}={v}" for k, v in r["inputs"].items()))
     if r.get("note"):
         print(f"  note   {r['note']}")
     if r.get("url"):
@@ -61,6 +77,7 @@ def local(iso):
 def book(a):
     body = {
         "variables": dict(v.split("=", 1) for v in a.var),
+        "inputs": typed(a.input),
         "runner_tag": a.tag,
         "note": a.note,
         "allow_protected": a.allow_protected,
@@ -86,6 +103,7 @@ def add_schedule(a):
         "cron": a.cron,
         "timezone": a.tz,
         "variables": dict(v.split("=", 1) for v in a.var),
+        "inputs": typed(a.input),
         "runner_tag": a.tag,
         "note": a.note,
         "allow_protected": a.allow_protected,
@@ -116,6 +134,7 @@ def main():
     b.add_argument("--tag", default="perentie-runner")
     b.add_argument("--ref", required=True, help="branch to run against")
     b.add_argument("--var", action="append", default=[])
+    b.add_argument("--input", action="append", default=[], help="typed pipeline input KEY=value; true/false and integers are typed")
     b.add_argument("--note", default="")
     b.add_argument("--allow-protected", action="store_true")
     b.add_argument("--at")
@@ -131,6 +150,7 @@ def main():
     sa.add_argument("--tag", default="perentie-runner")
     sa.add_argument("--ref", required=True, help="branch to run against")
     sa.add_argument("--var", action="append", default=[])
+    sa.add_argument("--input", action="append", default=[], help="typed pipeline input KEY=value; true/false and integers are typed")
     sa.add_argument("--note", default="")
     sa.add_argument("--allow-protected", action="store_true")
     sa.set_defaults(func=add_schedule)

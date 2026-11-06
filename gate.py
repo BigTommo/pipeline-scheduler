@@ -56,10 +56,20 @@ def check_ref(b):
     b["runner_tag"] = tag
 
 
+def check_inputs(b):
+    ins = b.get("inputs")
+    if ins is None:
+        return
+    if not isinstance(ins, dict) or any(
+            not isinstance(k, str) or not isinstance(v, (str, bool, int, float)) for k, v in ins.items()):
+        raise ValueError("inputs must be an object of NAME: string, number or boolean")
+
+
 def book(user, b, host):
     check_ref(b)
+    check_inputs(b)
     dep = prefect_api("GET", f"/deployments/name/{DEPLOYMENT}")
-    params = {k: b[k] for k in ("ref", "runner_tag", "variables", "note", "allow_protected") if k in b}
+    params = {k: b[k] for k in ("ref", "runner_tag", "variables", "inputs", "note", "allow_protected") if k in b}
     params["requested_by"] = user
     at = b.get("scheduled_time") or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     run = prefect_api("POST", f"/deployments/{dep['id']}/create_flow_run", {
@@ -73,6 +83,7 @@ def book(user, b, host):
         "runner_tag": params["runner_tag"],
         "requested_by": user,
         "variables": params.get("variables", {}),
+        "inputs": params.get("inputs", {}),
         "note": params.get("note", ""),
         "run_name": run["name"],
         "url": f"http://{ADVERTISE or host}/#{run['id']}",
@@ -115,6 +126,10 @@ def fields():
          "what": "Branch to run against."},
         {"name": "variables", "default": "{}",
          "what": "GitLab pipeline variables. Values must be strings, so \"true\" not true."},
+        {"name": "inputs", "default": "{}",
+         "what": "GitLab pipeline inputs (spec:inputs), typed: true, 10, \"pull\". Use these for anything "
+                 "the config reads at compile time, such as parallel counts and the pipeline name; "
+                 "variables cannot reach those. RUNNER_TAG is set from runner_tag."},
         {"name": "scheduled_time", "default": "now",
          "what": "ISO 8601 UTC, e.g. 2026-09-18T02:00:00Z. Omit to run as soon as a slot frees."},
         {"name": "runner_tag", "default": TAGS[0],
@@ -175,7 +190,8 @@ def schedules():
 
 def add_schedule(user, b, host):
     check_ref(b)
-    params = {k: b[k] for k in ("ref", "runner_tag", "variables", "note", "allow_protected") if k in b}
+    check_inputs(b)
+    params = {k: b[k] for k in ("ref", "runner_tag", "variables", "inputs", "note", "allow_protected") if k in b}
     params["requested_by"] = user
     spec = {
         "schedule": {"cron": b["cron"], "timezone": b.get("timezone", "UTC")},
@@ -195,6 +211,7 @@ def add_schedule(user, b, host):
         "runner_tag": params["runner_tag"],
         "requested_by": user,
         "variables": params.get("variables", {}),
+        "inputs": params.get("inputs", {}),
         "note": params.get("note", ""),
         "url": f"http://{ADVERTISE or host}/#{made[0]['id']}",
     }

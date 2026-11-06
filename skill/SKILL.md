@@ -41,9 +41,19 @@ than assuming the one that happens to be checked out. `--in` takes
 `--tag` is `perentie-runner` (default) or `tern-runner`. `--ref` overrides the
 branch.
 
-`--var` values are GitLab pipeline variables, always strings. Read the real
-names and defaults from the `spec:inputs:` block at the top of
-`.gitlab-ci.yml` in the paratoo-fdcp repo. Do not trust a doc for them.
+`--input` values are typed GitLab pipeline inputs (`true`/`false` and integers
+are typed, the rest are strings); `--var` values are pipeline variables, always
+strings. Use `--input` for anything in the `spec:inputs:` block at the top of
+`.gitlab-ci.yml` in the paratoo-fdcp repo. The config reads inputs when it
+compiles, so a variable cannot change shard counts (`PRIORITY_PARALLEL`,
+`RUN_PARALLEL`), `ISOLATED_STACKS`/`DISTRIBUTION` runner tags or the pipeline
+name. `RUNNER_TAG` is set from `--tag`, and GitLab rejects a tag missing from
+that input's `options:`. Read the real names and defaults from that block; do
+not trust a doc for them.
+
+    ./book.py book --ref <branch> --at "2026-11-07 10:00" --tag huy-runner \
+      --input RUN_CYPRESS_TESTS=true --input DISTRIBUTION=pull \
+      --input ISOLATED_STACKS=distributed --input PRIORITY_PARALLEL=10 --input RUN_PARALLEL=16
 
 If the `pipeline-scheduler` MCP tools are available, prefer them over `book.py`.
 Same four verbs, typed arguments.
