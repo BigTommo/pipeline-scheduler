@@ -38,8 +38,13 @@ def whoami(token):
         return None
 
 
+def token_block(user):
+    # Prefect block names allow only lowercase letters, digits and dashes.
+    return "gitlab-token-" + re.sub(r"[^a-z0-9-]", "-", user.lower())
+
+
 def stash(user, token):
-    Secret(value=token).save(f"gitlab-token-{user}", overwrite=True)
+    Secret(value=token).save(token_block(user), overwrite=True)
 
 
 def check_ref(b):
