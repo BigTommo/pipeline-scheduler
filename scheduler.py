@@ -1,4 +1,5 @@
 import os
+import re
 import time
 from urllib.parse import quote
 
@@ -18,6 +19,11 @@ SLACK = os.getenv("SLACK_WEBHOOK_URL")
 
 ACTIVE = {"created", "pending", "running"}
 BASE = f"{GITLAB}/api/v4/projects/{quote(PROJECT, safe='')}"
+
+
+def token_block(user):
+    # Prefect block names allow only lowercase letters, digits and dashes.
+    return "gitlab-token-" + re.sub(r"[^a-z0-9-]", "-", user.lower())
 
 
 def api(method, path, token, **kw):
@@ -73,7 +79,7 @@ def run_pipeline(
             log.info("DRY_RUN, would trigger %s for %s: %s", ref, requested_by, vars)
             return {"ref": ref, "requested_by": requested_by, "variables": vars, "inputs": ins}
 
-        token = Secret.load(f"gitlab-token-{requested_by}").get()
+        token = Secret.load(token_block(requested_by)).get()
         body = {
             "ref": ref,
             "variables": [{"key": k, "value": str(v)} for k, v in vars.items()],

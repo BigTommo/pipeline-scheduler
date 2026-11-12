@@ -23,7 +23,7 @@ The gate resolves it against `GET /api/v4/user` and uses that username as
 `requested_by`. There is no field to name someone else, so bookings cannot be
 forged, and GitLab attributes each pipeline to whoever booked it.
 
-The PAT is stored as a Prefect Secret block (`gitlab-token-<user>`), encrypted
+The PAT is stored as a Prefect Secret block (`gitlab-token-<user>`, with the username lowercased and other characters turned into dashes), encrypted
 at rest, refreshed on every call so rotation is automatic. It leaves the box
 only as a `PRIVATE-TOKEN` header to gitlab.com.
 
